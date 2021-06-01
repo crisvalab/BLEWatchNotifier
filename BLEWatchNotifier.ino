@@ -15,7 +15,6 @@ TTGOClass *ttgo;
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
-
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
@@ -29,7 +28,7 @@ class MyServerCallbacks: public BLEServerCallbacks {
 void setup() {
   ttgo = TTGOClass::getWatch();
   ttgo->begin();
-  ttgo->openBL();
+  //ttgo->openBL();
   ttgo->lvgl_begin();
 
   BLEDevice::init("ESP32");
@@ -60,8 +59,6 @@ void setup() {
 }
 
 void loop() {
-  ttgo->tft->fillScreen(TFT_BLACK);
-  
     // notify changed value
     if (deviceConnected) {
         pCharacteristic->setValue((uint8_t*)&value, 4);
@@ -83,5 +80,5 @@ void loop() {
     }
 
     lv_task_handler();
-    delay(5);
+    delay(900);
 }
