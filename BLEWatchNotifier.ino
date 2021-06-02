@@ -55,8 +55,13 @@ void setup() {
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(false);
   //pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
-  pAdvertising->setMinPreferred(0x06);  // functions that help with iPhone connections issue
-  pAdvertising->setMinPreferred(0x12);
+  
+  pAdvertising->setMinPreferred(0x0);
+  pAdvertising->setMaxPreferred(0x0);
+
+  pAdvertising->setMaxInterval(0x460);
+  pAdvertising->setMinInterval(0x460);
+  
   BLEDevice::startAdvertising();
 }
 
