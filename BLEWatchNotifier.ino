@@ -6,7 +6,7 @@
 
 BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic = NULL;
-//uint32_t value = 0;
+uint32_t value = 0;
 
 TTGOClass *ttgo;
 
@@ -16,12 +16,41 @@ bool irq = false;
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
+uint32_t targetTime = 0;
+boolean initial = 1;
+byte xcolon = 0;
+
+static uint8_t conv2d(const char *p)
+{
+    uint8_t v = 0;
+    if ('0' <= *p && *p <= '9')
+        v = *p - '0';
+    return 10 * v + *++p - '0';
+}
+
+uint8_t hh = conv2d(__TIME__), mm = conv2d(__TIME__ + 3), ss = conv2d(__TIME__ + 6); // Get H, M, S from compile time
+
 void display_show()
 {
     ttgo->openBL();
+    
     tft->fillScreen(TFT_BLACK);
+    
     tft->drawString(String(ttgo->power->getBattPercentage()) + " %", 25, 100);
-    //tft->println(" %");
+
+    byte xpos = 6;
+    byte ypos = 0;
+    ttgo->tft->setTextColor(0x39C4, TFT_BLACK);
+    //ttgo->tft->drawString("88:88", xpos, ypos, 7);
+    ttgo->tft->setTextColor(0xFBE0, TFT_BLACK); 
+
+    if (hh < 10) xpos += ttgo->tft->drawChar('0', xpos, ypos, 7);
+    xpos += ttgo->tft->drawNumber(hh, xpos, ypos, 7);
+    xcolon = xpos;
+    xpos += ttgo->tft->drawChar(':', xpos, ypos, 7);
+    if (mm < 10) xpos += ttgo->tft->drawChar('0', xpos, ypos, 7);
+    ttgo->tft->drawNumber(mm, xpos, ypos, 7);
+    
 }
 
 void setup() {
@@ -75,17 +104,33 @@ void setup() {
 }
 
 void loop() {
-    if (irq) {
-        irq = false;
-        ttgo->power->readIRQ();
-        if (ttgo->power->isPEKShortPressIRQ()) {
-            display_show();
-            delay(2000);
-            ttgo->closeBL();
+  if (targetTime < millis()) {
+    targetTime = millis() + 1000;
+    ss++;              // Advance second
+    if (ss == 60) {
+        ss = 0;
+        mm++;            // Advance minute
+        if (mm > 59) {
+            mm = 0;
+            hh++;          // Advance hour
+            if (hh > 23) {
+                hh = 0;
+            }
         }
-        ttgo->power->clearIRQ();
     }
-    
-    //lv_task_handler();
-    delay(5);
+  }
+  
+  if (irq) {
+    irq = false;
+    ttgo->power->readIRQ();
+    if (ttgo->power->isPEKShortPressIRQ()) {
+        display_show();
+        delay(2000);
+        ttgo->closeBL();
+    }
+    ttgo->power->clearIRQ();
+  }
+  
+  //lv_task_handler();
+  delay(5);
 }
