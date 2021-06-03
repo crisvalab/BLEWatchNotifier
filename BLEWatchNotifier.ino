@@ -6,36 +6,45 @@
 
 BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic = NULL;
-bool deviceConnected = false;
-bool oldDeviceConnected = false;
-uint32_t value = 0;
+//uint32_t value = 0;
 
 TTGOClass *ttgo;
+
+TFT_eSPI *tft =  nullptr;
+bool irq = false;
 
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
-class MyServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) {
-      deviceConnected = true;
-    };
-
-    void onDisconnect(BLEServer* pServer) {
-      deviceConnected = false;
-    }
-};
+void display_show()
+{
+    ttgo->openBL();
+    tft->fillScreen(TFT_BLACK);
+    tft->drawString(String(ttgo->power->getBattPercentage()) + " %", 25, 100);
+    //tft->println(" %");
+}
 
 void setup() {
   ttgo = TTGOClass::getWatch();
   ttgo->begin();
-  //ttgo->openBL();
-  ttgo->lvgl_begin();
+
+  tft = ttgo->tft;
+
+  tft->setTextFont(2);
+  tft->setTextColor(TFT_GREEN, TFT_BLACK);
+
+  pinMode(AXP202_INT, INPUT_PULLUP);
+  attachInterrupt(AXP202_INT, [] {
+      irq = true;
+  }, FALLING);
+
+  ttgo->power->enableIRQ(AXP202_PEK_SHORTPRESS_IRQ | AXP202_VBUS_REMOVED_IRQ | AXP202_VBUS_CONNECT_IRQ | AXP202_CHARGING_IRQ, true);
+  ttgo->power->clearIRQ();
 
   BLEDevice::init("ESP32");
 
   // Create the BLE Server
   pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
 
   BLEService *pService = pServer->createService(SERVICE_UUID);
 
@@ -54,38 +63,29 @@ void setup() {
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(false);
-  //pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
+  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
   
-  pAdvertising->setMinPreferred(0x0);
-  pAdvertising->setMaxPreferred(0x0);
+  //pAdvertising->setMinPreferred(0x0);
+  //pAdvertising->setMaxPreferred(0x0);
 
-  pAdvertising->setMaxInterval(0x460);
-  pAdvertising->setMinInterval(0x460);
+  //pAdvertising->setMaxInterval(0x460);
+  //pAdvertising->setMinInterval(0x460);
   
   BLEDevice::startAdvertising();
 }
 
 void loop() {
-    // notify changed value
-    if (deviceConnected) {
-        pCharacteristic->setValue((uint8_t*)&value, 4);
-        pCharacteristic->notify();
-        value++;
-        delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+    if (irq) {
+        irq = false;
+        ttgo->power->readIRQ();
+        if (ttgo->power->isPEKShortPressIRQ()) {
+            display_show();
+            delay(2000);
+            ttgo->closeBL();
+        }
+        ttgo->power->clearIRQ();
     }
-    // disconnecting
-    if (!deviceConnected && oldDeviceConnected) {
-        delay(500); // give the bluetooth stack the chance to get things ready
-        pServer->startAdvertising(); // restart advertising
-        //Serial.println("start advertising");
-        oldDeviceConnected = deviceConnected;
-    }
-    // connecting
-    if (deviceConnected && !oldDeviceConnected) {
-        // do stuff here on connecting
-        oldDeviceConnected = deviceConnected;
-    }
-
-    lv_task_handler();
+    
+    //lv_task_handler();
     delay(5);
 }
